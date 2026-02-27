@@ -107,7 +107,7 @@ Wire these with Claude Code's PostToolUse and PreToolUse hooks.
 ## Installation
 
 ```bash
-git clone https://github.com/pdesai-ai/mirrordash
+git clone https://github.com/MirrorDNA-Reflection-Protocol/mirrordash
 cd mirrordash
 pip install -r requirements.txt
 python3 mirrordash.py --profile glass --once
