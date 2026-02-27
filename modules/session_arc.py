@@ -87,12 +87,14 @@ def render(profile):
     execs  = sum(1 for e in events if e.get("tool") in EXEC_TOOLS)
     mobile = sum(1 for e in events if "mobile" in e.get("tool","").lower())
 
-    t.append(f"  {total} tool calls this session   ", style="grey50")
-    t.append(f"R:{reads} ", style="cyan")
-    t.append(f"W:{writes} ", style="yellow")
-    t.append(f"X:{execs} ", style="green")
+    t.append(f"  ", style="grey50")
+    t.append(f"{total}", style="bold white")
+    t.append(f" tool calls   ", style="grey50")
+    t.append(f"R:", style="grey50"); t.append(f"{reads} ", style="bold cyan")
+    t.append(f"W:", style="grey50"); t.append(f"{writes} ", style="bold yellow")
+    t.append(f"X:", style="grey50"); t.append(f"{execs} ", style="bold green")
     if mobile:
-        t.append(f"M:{mobile} ", style="bright_magenta")
+        t.append(f"M:", style="grey50"); t.append(f"{mobile} ", style="bold bright_magenta")
     t.append("\n\n")
 
     # Timeline bar — compress to terminal width (max 80 chars)

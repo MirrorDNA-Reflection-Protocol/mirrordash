@@ -57,8 +57,9 @@ def render(profile):
         t.append(f"  ✗ {blocked} BLOCKED  ", style="bold red")
     if warned:
         t.append(f"  ! {warned} WARNED  ", style="bold yellow")
-    t.append(f"  · {allowed} ok  ", style="grey50")
-    t.append(f"  {total} decisions / 24h\n\n", style="grey30")
+    t.append(f"  · {allowed} ok  ", style="grey60")
+    t.append(f"  {total}", style="bold white")
+    t.append(f" decisions / 24h\n\n", style="grey50")
 
     # Table of recent decisions
     tbl = Table(show_header=False, box=None, padding=(0, 1), expand=True)
@@ -79,10 +80,10 @@ def render(profile):
         icon, dc = DECISION_STYLE.get(decision, ("?", "white"))
         tbl.add_row(
             Text(icon, style=dc),
-            Text(hook, style="grey60"),
-            Text(decision, style=dc),
-            Text(reason[:55], style="grey40"),
-            Text(age, style="grey23"),
+            Text(hook, style="white"),
+            Text(decision, style=f"bold {dc}"),
+            Text(reason[:55], style="grey70"),
+            Text(age, style="grey42"),
         )
 
     if not recent:

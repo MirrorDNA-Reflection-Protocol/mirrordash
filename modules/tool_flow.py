@@ -75,7 +75,7 @@ def render(profile):
     tbl.add_column("count", width=6,  no_wrap=True)
     for label, n, c in rows:
         if n == 0: continue
-        tbl.add_row(Text(label, style="grey60"), bar(n, total, c=c), Text(str(n), style=c))
+        tbl.add_row(Text(label, style="grey70"), bar(n, total, c=c), Text(str(n), style=f"bold {c}"))
 
     # Read:Write ratio
     ratio_txt = Text()
@@ -90,7 +90,9 @@ def render(profile):
             ratio_txt.append("ok", style="yellow")
         else:
             ratio_txt.append("good", style="green")
-    ratio_txt.append(f"\n  {total} total tool calls logged\n", style="grey30")
+    ratio_txt.append(f"\n  ", style="grey50")
+    ratio_txt.append(f"{total}", style="bold white")
+    ratio_txt.append(f" total tool calls logged\n", style="grey50")
 
     # Last 8 actions
     last_txt = Text()

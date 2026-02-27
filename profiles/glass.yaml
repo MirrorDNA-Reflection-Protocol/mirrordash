@@ -1,6 +1,6 @@
 name: "Glass Box — AI Transparency"
 description: "Every decision, tool, hook, and model. In real time."
-color: deep_sky_blue1
+color: bright_cyan
 refresh: 5
 left_ratio: 2
 right_ratio: 3
