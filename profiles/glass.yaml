@@ -7,7 +7,7 @@ right_ratio: 3
 
 layout:
   left:
-    - risk_score
+    - behavioral_metrics
     - model_monitor
     - memory_map
     - net_activity
