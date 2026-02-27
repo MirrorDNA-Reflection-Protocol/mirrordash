@@ -1,20 +1,19 @@
 name: "Glass Box — AI Transparency"
-description: "What the AI is doing, deciding, and failing at. In real time."
+description: "Every decision, tool, hook, and model. In real time."
 color: deep_sky_blue1
-columns: 2
 refresh: 5
-wide:
-  - gate_activity
-  - session_arc
-modules:
-  - risk_score
-  - model_monitor
-  - gate_activity
-  - critique_trend
-  - rule_compliance
-  - mistake_patterns
-  - session_arc
-  - tool_flow
-  - vault_access
-  - memory_map
-  - net_activity
+left_ratio: 2
+right_ratio: 3
+
+layout:
+  left:
+    - risk_score
+    - model_monitor
+    - memory_map
+    - net_activity
+  right:
+    - gate_activity
+    - session_arc
+    - [critique_trend, rule_compliance]
+    - mistake_patterns
+    - [tool_flow, vault_access]

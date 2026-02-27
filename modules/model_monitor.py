@@ -1,8 +1,7 @@
-"""Model Monitor — which AI models are running, loaded in RAM, and what's been used."""
+"""Model Monitor — models loaded, weights, quantization, context, tokens, API calls."""
 import json
 import time
 import urllib.request
-import urllib.error
 from pathlib import Path
 from rich.panel import Panel
 from rich.table import Table
@@ -14,106 +13,127 @@ from .core import clr
 OLLAMA_BASE = "http://localhost:11434"
 CC_EVENTS   = Path.home() / ".mirrordna/bus/cc_events.jsonl"
 
-# API cost per 1M tokens (input) — update as prices change
-API_COSTS = {
-    "claude":  3.0,   # claude-sonnet tier
-    "gpt":     2.5,
-    "groq":    0.05,  # groq llama is very cheap
-    "gemini":  0.075,
-}
 
-
-def _ollama_request(path: str):
+def _ollama(path: str, body: dict = None):
     try:
-        with urllib.request.urlopen(f"{OLLAMA_BASE}{path}", timeout=2) as r:
+        if body:
+            data = json.dumps(body).encode()
+            req  = urllib.request.Request(f"{OLLAMA_BASE}{path}", data=data,
+                                          headers={"Content-Type": "application/json"})
+        else:
+            req = f"{OLLAMA_BASE}{path}"
+        with urllib.request.urlopen(req, timeout=2) as r:
             return json.loads(r.read())
     except Exception:
         return None
 
 
+def _quant_color(q: str) -> str:
+    q = q.upper()
+    if "Q8" in q or "F16" in q:  return "green"
+    if "Q6" in q or "Q5" in q:   return "cyan"
+    if "Q4" in q:                 return "yellow"
+    return "grey50"
+
+
 def render(profile):
     color = clr(profile.get("color", "deep_sky_blue1"))
 
-    t = Text()
+    ps         = _ollama("/api/ps")
+    all_models = _ollama("/api/tags")
 
-    # ── LOADED IN RAM ──
-    ps = _ollama_request("/api/ps")
-    all_models = _ollama_request("/api/tags")
+    parts = []
 
-    t.append("  LOADED IN RAM\n", style=f"bold {color}")
+    # ── HOT: LOADED IN RAM ──────────────────────────────────────────────────
+    hot_txt = Text("  HOT — IN RAM\n", style=f"bold {color}")
+    parts.append(hot_txt)
 
     if ps is None:
-        t.append("  Ollama not responding\n", style="red")
+        parts.append(Text("  Ollama offline\n", style="red"))
     elif not ps.get("models"):
-        t.append("  No models loaded\n", style="grey50")
+        parts.append(Text("  No models loaded\n", style="grey50"))
     else:
-        ram_tbl = Table(show_header=False, box=None, padding=(0, 1), expand=True)
-        ram_tbl.add_column("name",  no_wrap=True, overflow="fold")
-        ram_tbl.add_column("ram",   width=8,  no_wrap=True)
-        ram_tbl.add_column("proc",  width=6,  no_wrap=True)
-        ram_tbl.add_column("until", width=6,  no_wrap=True)
+        hot_tbl = Table(show_header=False, box=None, padding=(0, 1), expand=True)
+        hot_tbl.add_column("name",   no_wrap=True)
+        hot_tbl.add_column("params", width=6,  no_wrap=True)
+        hot_tbl.add_column("quant",  width=9,  no_wrap=True)
+        hot_tbl.add_column("ctx",    width=5,  no_wrap=True)
+        hot_tbl.add_column("ram",    width=7,  no_wrap=True)
+        hot_tbl.add_column("proc",   width=4,  no_wrap=True)
 
         for m in ps["models"]:
-            name  = m.get("name", "?")
-            ram_mb = m.get("size", 0) // 1024 // 1024
-            ram_gb = ram_mb / 1024
-            proc  = "GPU" if "gpu" in str(m.get("details", {})).lower() else "CPU"
-            pc    = "green" if proc == "GPU" else "yellow"
+            name   = m.get("name", "?")
+            det    = m.get("details", {})
+            params = det.get("parameter_size", "?")
+            quant  = det.get("quantization_level", "?")
+            ctx    = m.get("context_length", 0)
+            ram_gb = m.get("size", 0) / 1024**3
+            vram   = m.get("size_vram", 0)
+            proc   = "GPU" if vram > 0 else "CPU"
+            pc     = "green" if proc == "GPU" else "yellow"
+            qc     = _quant_color(quant)
 
-            # time until unloaded
-            expires = m.get("expires_at", "")[:16]
-            until_str = "∞"
-            if expires:
-                try:
-                    from datetime import datetime, timezone
-                    exp = datetime.fromisoformat(expires.replace("Z", "+00:00"))
-                    diff = (exp - datetime.now(timezone.utc)).total_seconds()
-                    if diff > 3600:
-                        until_str = f"{int(diff/3600)}h"
-                    elif diff > 0:
-                        until_str = f"{int(diff/60)}m"
-                    else:
-                        until_str = "exp"
-                except Exception:
-                    pass
+            ctx_str = f"{ctx//1024}K" if ctx >= 1024 else str(ctx)
 
-            ram_tbl.add_row(
+            hot_tbl.add_row(
                 Text(name, style="cyan"),
+                Text(params, style="bright_white"),
+                Text(quant,  style=qc),
+                Text(ctx_str, style="grey60"),
                 Text(f"{ram_gb:.1f}GB", style="grey70"),
-                Text(proc, style=pc),
-                Text(until_str, style="grey42"),
+                Text(proc,   style=pc),
             )
+        parts.append(hot_tbl)
 
-    # ── ALL MODELS ON DISK ──
-    cold_txt = Text(f"\n  ON DISK", style=f"bold {color}")
+    # ── COLD: ALL ON DISK ───────────────────────────────────────────────────
     loaded_names = set()
     if ps and ps.get("models"):
         loaded_names = {m["name"] for m in ps["models"]}
 
+    cold_txt = Text("\n  COLD — ON DISK\n", style=f"bold {color}")
+    parts.append(cold_txt)
+
     if all_models and all_models.get("models"):
         total_gb = sum(m.get("size", 0) for m in all_models["models"]) / 1024**3
-        cold_txt.append(f"  ({len(all_models['models'])} models, {total_gb:.0f}GB)\n", style="grey42")
+        sz_line = Text(f"  {len(all_models['models'])} models  {total_gb:.0f}GB total\n", style="grey42")
+        parts.append(sz_line)
 
-        disk_tbl = Table(show_header=False, box=None, padding=(0, 1), expand=True)
-        disk_tbl.add_column("status", width=2,  no_wrap=True)
-        disk_tbl.add_column("name",   no_wrap=True, overflow="fold")
-        disk_tbl.add_column("size",   width=6,  no_wrap=True)
+        cold_tbl = Table(show_header=False, box=None, padding=(0, 1), expand=True)
+        cold_tbl.add_column("st",    width=2,  no_wrap=True)
+        cold_tbl.add_column("name",  no_wrap=True)
+        cold_tbl.add_column("params",width=6,  no_wrap=True)
+        cold_tbl.add_column("quant", width=9,  no_wrap=True)
+        cold_tbl.add_column("size",  width=6,  no_wrap=True)
 
         for m in all_models["models"]:
             name   = m.get("name", "?")
-            size_gb = m.get("size", 0) / 1024**3
+            det    = m.get("details", {})
+            params = det.get("parameter_size", "?")
+            quant  = det.get("quantization_level", "?")
+            size_g = m.get("size", 0) / 1024**3
             hot    = name in loaded_names
             dot    = Text("▶", style="green") if hot else Text("·", style="grey30")
             nc     = "cyan" if hot else "grey50"
-            disk_tbl.add_row(dot, Text(name, style=nc), Text(f"{size_gb:.1f}G", style="grey42"))
+            qc     = _quant_color(quant) if hot else "grey30"
+            cold_tbl.add_row(
+                dot,
+                Text(name,   style=nc),
+                Text(params, style="grey60" if not hot else "white"),
+                Text(quant,  style=qc),
+                Text(f"{size_g:.1f}G", style="grey42"),
+            )
+        parts.append(cold_tbl)
     else:
-        cold_txt.append("  (unavailable)\n", style="grey30")
-        disk_tbl = None
+        parts.append(Text("  (unavailable)\n", style="grey30"))
 
-    # ── API MODELS IN USE ──
-    api_txt = Text(f"\n  API CALLS THIS SESSION\n", style=f"bold {color}")
+    # ── THIS SESSION: API CALLS ─────────────────────────────────────────────
+    api_txt = Text("\n  THIS SESSION\n", style=f"bold {color}")
+    parts.append(api_txt)
+
     session_id = None
     api_counts = {}
+    mcp_counts = {}
+
     if CC_EVENTS.exists():
         with open(CC_EVENTS) as f:
             lines = list(f)
@@ -126,8 +146,13 @@ def render(profile):
                     continue
                 tool   = ev.get("tool", "")
                 target = ev.get("target", "").lower()
-                # Detect which API is being called
-                if tool == "Bash":
+                # MCP tool calls
+                if tool.startswith("mcp__"):
+                    parts_name = tool.split("__")
+                    srv = parts_name[1] if len(parts_name) > 1 else tool
+                    mcp_counts[srv] = mcp_counts.get(srv, 0) + 1
+                # API calls via Bash
+                elif tool == "Bash":
                     for api in ["groq", "openai", "anthropic", "gemini", "ollama"]:
                         if api in target:
                             api_counts[api] = api_counts.get(api, 0) + 1
@@ -136,37 +161,30 @@ def render(profile):
             except Exception:
                 pass
 
-    # Always show Claude (current session is Claude)
-    api_tbl = Table(show_header=False, box=None, padding=(0, 1), expand=True)
-    api_tbl.add_column("api",   width=14, no_wrap=True)
-    api_tbl.add_column("calls", width=6,  no_wrap=True)
-    api_tbl.add_column("note",  no_wrap=True)
+    sess_tbl = Table(show_header=False, box=None, padding=(0, 1), expand=True)
+    sess_tbl.add_column("name",  width=18, no_wrap=True)
+    sess_tbl.add_column("calls", width=5,  no_wrap=True)
+    sess_tbl.add_column("type",  no_wrap=True)
 
-    api_tbl.add_row(
-        Text("claude-code", style="cyan"),
+    # Claude is always present
+    sess_tbl.add_row(
+        Text("claude-sonnet-4-6", style="cyan"),
         Text("active", style="green"),
-        Text("this session", style="grey42"),
+        Text("primary model", style="grey42"),
     )
     for api, count in sorted(api_counts.items(), key=lambda x: -x[1]):
-        api_tbl.add_row(
+        sess_tbl.add_row(
             Text(api, style="grey60"),
-            Text(str(count), style="grey70"),
-            Text("tool calls", style="grey30"),
+            Text(str(count), style="yellow"),
+            Text("api calls", style="grey30"),
         )
-
-    if not api_counts:
-        api_txt.append("  claude-code active  (no other API calls logged)\n", style="grey50")
-        api_tbl = None
-
-    parts = [t]
-    if ps and ps.get("models"):
-        parts.append(ram_tbl)
-    parts += [cold_txt]
-    if disk_tbl:
-        parts.append(disk_tbl)
-    parts.append(api_txt)
-    if api_tbl:
-        parts.append(api_tbl)
+    for srv, count in sorted(mcp_counts.items(), key=lambda x: -x[1]):
+        sess_tbl.add_row(
+            Text(srv[:18], style="magenta"),
+            Text(str(count), style="bright_magenta"),
+            Text("mcp", style="grey30"),
+        )
+    parts.append(sess_tbl)
 
     return Panel(Group(*parts),
                  title=f"[{color}]MODEL MONITOR[/{color}]",
