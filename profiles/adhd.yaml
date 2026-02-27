@@ -1,0 +1,12 @@
+name: "ADHD — Focus Mode"
+description: "One task. Zero noise. Cognitive load visible."
+color: yellow
+columns: 2
+refresh: 10
+modules:
+  - focus
+  - queue
+  - energy
+  - loops
+  - vitals
+  - git

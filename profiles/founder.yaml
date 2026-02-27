@@ -1,0 +1,12 @@
+name: "Founder OS"
+description: "Revenue, runway, pipeline, today's one thing."
+color: magenta
+columns: 2
+refresh: 60
+modules:
+  - focus
+  - metrics
+  - pipeline
+  - energy
+  - git
+  - loops

@@ -1,0 +1,11 @@
+name: "Default"
+description: "General purpose — tasks, vitals, git, energy."
+color: bright_cyan
+columns: 2
+refresh: 15
+modules:
+  - focus
+  - vitals
+  - git
+  - energy
+  - loops

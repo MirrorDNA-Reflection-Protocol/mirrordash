@@ -1,0 +1,11 @@
+name: "SysAdmin — Ops"
+description: "Services, ports, logs, system vitals."
+color: green
+columns: 2
+refresh: 5
+modules:
+  - services
+  - vitals
+  - logs
+  - git
+  - loops

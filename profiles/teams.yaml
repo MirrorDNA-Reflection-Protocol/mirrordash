@@ -1,0 +1,11 @@
+name: "Teams — Async Ops"
+description: "Presence, blockers, shared context, velocity."
+color: cyan
+columns: 2
+refresh: 30
+modules:
+  - presence
+  - blockers
+  - decisions
+  - velocity
+  - vitals
