@@ -8,6 +8,7 @@ wide:
   - session_arc
 modules:
   - risk_score
+  - model_monitor
   - gate_activity
   - critique_trend
   - rule_compliance
