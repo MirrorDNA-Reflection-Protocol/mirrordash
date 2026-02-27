@@ -59,7 +59,10 @@ def load_module(name: str):
 
 
 def render_profile(profile: dict):
-    """Render all modules for a profile into a 2-column layout."""
+    """Render all modules for a profile into a structured layout."""
+    from rich.console import Group
+    from rich.columns import Columns
+
     module_names = profile.get("modules", [])
     panels = []
 
@@ -67,20 +70,43 @@ def render_profile(profile: dict):
         mod = load_module(name)
         if mod and hasattr(mod, "render"):
             try:
-                panels.append(mod.render(profile))
+                panels.append((name, mod.render(profile)))
             except Exception as e:
-                panels.append(Panel(f"[red]{name}: {e}[/]", title=name))
+                panels.append((name, Panel(Text(f"{name}: {e}", style="red"), title=name)))
         else:
-            panels.append(Panel(
-                f"[grey42]Module '{name}' not found.[/]\n"
-                f"[grey30]Create modules/{name}.py with render(profile) -> Panel[/]",
-                title=f"[grey30]{name}[/]",
-                border_style="grey23",
-                box=box.SIMPLE_HEAD
-            ))
+            panels.append((name, Panel(
+                Text(f"Module '{name}' not found.\nCreate modules/{name}.py", style="grey42"),
+                title=f"[grey30]{name}[/]", border_style="grey23", box=box.SIMPLE_HEAD
+            )))
 
     cols = profile.get("columns", 2)
-    return Columns(panels, equal=True, expand=True)
+    wide = set(profile.get("wide", []))
+
+    if len(panels) == 0:
+        return Panel(Text("No modules configured.", style="grey50"))
+
+    if cols == 1 or len(panels) == 1:
+        return Group(*[p for _, p in panels])
+
+    # Build rows using Columns (natural height, no clipping)
+    rows = []
+    col_buf = []
+
+    for name, panel in panels:
+        if name in wide:
+            if col_buf:
+                rows.append(Columns([p for _, p in col_buf], equal=True, expand=True))
+                col_buf = []
+            rows.append(panel)  # full width
+        else:
+            col_buf.append((name, panel))
+            if len(col_buf) == cols:
+                rows.append(Columns([p for _, p in col_buf], equal=True, expand=True))
+                col_buf = []
+    if col_buf:
+        rows.append(Columns([p for _, p in col_buf], equal=True, expand=True))
+
+    return Group(*rows)
 
 
 def header(profile: dict) -> Panel:
