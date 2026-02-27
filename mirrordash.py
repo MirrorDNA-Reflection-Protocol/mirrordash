@@ -158,16 +158,30 @@ def build_layout(profile: dict) -> Layout:
     return layout
 
 
-def make_header(profile: dict) -> Panel:
-    color = profile.get("color", "bright_cyan")
-    now   = datetime.now().strftime("%H:%M:%S")
+# Pulse frames — cycles through on every animation tick
+_PULSE_FRAMES = ["◇", "◈", "⟡", "◆", "⟡", "◈"]
+# ECG trace — scrolls across header
+_ECG = "─────────────────╱╲──────────────────────────────────────────────────"
+
+
+def make_header(profile: dict, frame: int = 0) -> Panel:
+    color  = profile.get("color", "bright_cyan")
+    now    = datetime.now().strftime("%H:%M:%S")
+    pulse  = _PULSE_FRAMES[frame % len(_PULSE_FRAMES)]
+    # Scrolling ECG
+    ecg_w  = 28
+    offset = frame % len(_ECG)
+    ecg    = (_ECG * 2)[offset:offset + ecg_w]
+
     t = Text()
-    t.append("◇ MIRRORDASH", style=f"bold {color}")
+    t.append(f"{pulse} MIRRORDASH", style=f"bold {color}")
     t.append("  ─  ", style="grey30")
     t.append(profile.get("name", ""), style="white")
-    t.append("  ─  ", style="grey30")
+    t.append("  ", style="")
+    t.append(ecg, style=f"dim {color}")
+    t.append("  ", style="")
     t.append(profile.get("description", ""), style="grey50")
-    t.append(f"  {now}", style="grey42")
+    t.append(f"  {now}", style="grey60")
     return Panel(t, box=box.HORIZONTALS, border_style=color, padding=(0, 1))
 
 
@@ -205,7 +219,7 @@ def render_once(profile: dict):
     if buf:
         rows.append(Columns([render_module(m, profile) for m in buf], equal=True, expand=True))
 
-    console.print(make_header(profile))
+    console.print(make_header(profile, frame=0))
     for row in rows:
         console.print(row)
 
@@ -232,12 +246,25 @@ def main():
         render_once(profile)
         return
 
-    with Live(console=console, refresh_per_second=1, screen=True) as live:
+    with Live(console=console, refresh_per_second=4, screen=True) as live:
+        frame        = 0
+        last_rebuild = 0.0
+
         while True:
-            layout = build_layout(profile)
-            layout["header"].update(make_header(profile))
+            now = time.time()
+            profile["_frame"] = frame
+
+            # Rebuild data panels every `refresh` seconds
+            if now - last_rebuild >= refresh:
+                layout       = build_layout(profile)
+                last_rebuild = now
+
+            # Always update header (drives pulse + ECG animation)
+            layout["header"].update(make_header(profile, frame))
             live.update(layout)
-            time.sleep(refresh)
+
+            frame += 1
+            time.sleep(0.25)   # 4 fps animation tick
 
 
 if __name__ == "__main__":

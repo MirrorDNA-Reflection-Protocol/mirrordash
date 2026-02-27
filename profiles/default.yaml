@@ -1,11 +1,15 @@
 name: "Default"
 description: "General purpose — tasks, vitals, git, energy."
 color: bright_cyan
-columns: 2
 refresh: 15
-modules:
-  - focus
-  - vitals
-  - git
-  - energy
-  - loops
+left_ratio: 2
+right_ratio: 3
+
+layout:
+  left:
+    - focus
+    - energy
+    - loops
+  right:
+    - vitals
+    - git

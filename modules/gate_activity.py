@@ -86,11 +86,18 @@ def render(profile):
             Text(age, style="grey42"),
         )
 
+    frame = profile.get("_frame", 0)
+
     if not recent:
         t.append("  No activity in the last hour.\n", style="grey30")
         border = color
+    elif blocked:
+        # Blink between bright_red and dark_red on alternate frames
+        border = "bright_red" if frame % 2 == 0 else "red"
+    elif warned:
+        border = "yellow" if frame % 2 == 0 else "dark_orange"
     else:
-        border = "red" if blocked else "yellow" if warned else color
+        border = color
 
     from rich.console import Group
     content = Group(t, tbl)

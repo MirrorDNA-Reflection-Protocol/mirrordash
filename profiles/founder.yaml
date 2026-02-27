@@ -1,12 +1,16 @@
 name: "Founder OS"
 description: "Revenue, runway, pipeline, today's one thing."
 color: magenta
-columns: 2
 refresh: 60
-modules:
-  - focus
-  - metrics
-  - pipeline
-  - energy
-  - git
-  - loops
+left_ratio: 2
+right_ratio: 3
+
+layout:
+  left:
+    - focus
+    - energy
+    - loops
+  right:
+    - metrics
+    - pipeline
+    - git

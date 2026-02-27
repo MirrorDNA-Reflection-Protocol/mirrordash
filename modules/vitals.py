@@ -63,5 +63,14 @@ def render(profile):
     t.append(_bar(disk_pct, 100, width=18, color=bar_color(disk_pct)))
     t.append(f"  {disk_used}/{disk_total}G\n", style="grey85")
 
+    frame = profile.get("_frame", 0)
+    critical = cpu > 85 or ram_pct > 85
+    if critical:
+        border = "bright_red" if frame % 2 == 0 else "red"
+    elif cpu > 60 or ram_pct > 60:
+        border = "yellow" if frame % 2 == 0 else "dark_orange"
+    else:
+        border = "grey30"
+
     return Panel(t, title=f"[{color}]VITALS[/{color}]",
-                 border_style="grey30", box=box.SIMPLE_HEAD, padding=(0, 1))
+                 border_style=border, box=box.SIMPLE_HEAD, padding=(0, 1))

@@ -58,5 +58,11 @@ def render(profile):
     if not SERVICES_FILE.exists():
         t.append("  — configure ~/.mirrordash/services.yaml\n", style="grey30")
 
+    frame = profile.get("_frame", 0)
+    if up < total:
+        border = "bright_red" if frame % 2 == 0 else "red"
+    else:
+        border = color
+
     return Panel(t, title=f"[{color}]SERVICES[/{color}]",
-                 border_style=color, box=box.HEAVY_HEAD, padding=(0, 1))
+                 border_style=border, box=box.HEAVY_HEAD, padding=(0, 1))

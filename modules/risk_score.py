@@ -141,7 +141,14 @@ def render(profile):
             t.append(f"  -{deduct}", style=c)
         t.append("\n")
 
-    border = sc
+    frame = profile.get("_frame", 0)
+    if sc == "red":
+        border = "bright_red" if frame % 2 == 0 else "red"
+    elif sc == "yellow":
+        border = "yellow" if frame % 2 == 0 else "dark_orange"
+    else:
+        border = sc
+
     return Panel(t,
                  title=f"[{color}]INTEGRITY SCORE[/{color}]",
                  border_style=border, box=box.HEAVY_HEAD, padding=(0, 1))
